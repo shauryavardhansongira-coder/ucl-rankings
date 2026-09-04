@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auction Rankings</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a0b;
+    --panel: #131316;
+    --panel-alt: #1a1a1e;
+    --border: #2a2a30;
+    --text: #e8e8ea;
+    --text-dim: #8a8a92;
+    --text-faint: #5a5a62;
+    --accent: #4a9eff;
+    --green: #3ecf8e;
+    --yellow: #e0c341;
+    --orange: #e08a3e;
+    --red: #e05a5a;
+    --must: #3ecf8e;
+    --good: #4a9eff;
+    --filler: #8a8a92;
+    --avoid: #e05a5a;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    height: 100%;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .num, input[type="number"] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- Top bar / search ---------- */
+  #topbar {
+    flex: 0 0 auto;
+    padding: 10px 14px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    z-index: 50;
+  }
+
+  #searchWrap {
+    position: relative;
+    max-width: 640px;
+  }
+
+  #searchBox {
+    width: 100%;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 12px;
+    font-size: 14px;
+    border-radius: 6px;
+    outline: none;
+  }
+
+  #searchBox:focus {
+    border-color: var(--accent);
+  }
+
+  #searchResults {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 360px;
+    overflow-y: auto;
+    display: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+
+  #searchResults.open { display: block; }
+
+  .result-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .result-row:last-child { border-bottom: none; }
+
+  .result-row:hover:not(.added) { background: #23232a; }
+
+  .result-row.added {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .result-name {
+    font-weight: 600;
+    flex: 1 1 auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .result-meta {
+    color: var(--text-dim);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .result-pos {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: #2a2a30;
+    color: var(--text-dim);
+    min-width: 28px;
+    text-align: center;
+  }
+
+  .result-added-tag {
+    font-size: 11px;
+    color: var(--text-faint);
+    white-space: nowrap;
+  }
+
+  #statusMsg {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    min-height: 14px;
+  }
+
+  #saveWarning {
+    display: none;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--red);
+    font-weight: 600;
+  }
+
+  /* ---------- Fatal error ---------- */
+  #fatalError {
+    display: none;
+    margin: 40px auto;
+    max-width: 560px;
+    background: var(--panel);
+    border: 1px solid var(--red);
+    border-radius: 8px;
+    padding: 24px;
+    text-align: left;
+  }
+  #fatalError h2 { margin-top: 0; color: var(--red); }
+  #fatalError code {
+    background: var(--panel-alt);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* ---------- Tabs (narrow layout) ---------- */
+  #tabs {
+    display: none;
+    flex: 0 0 auto;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  #tabs.visible { display: flex; }
+  .tab-btn {
+    flex: 1;
+    padding: 8px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+
+  /* ---------- Main board ---------- */
+  #board {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  #board.tabbed {
+    grid-template-columns: 1fr;
+  }
+
+  .pos-section {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  #board.tabbed .pos-section {
+    display: none;
+  }
+  #board.tabbed .pos-section.active {
+    display: flex;
+  }
+
+  .pos-header {
+    flex: 0 0 auto;
+    padding: 8px 10px;
+    background: var(--panel);
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .pos-count {
+    color: var(--text-dim);
+    font-weight: 500;
+    font-size: 11px;
+  }
+
+  .pos-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding-bottom: 8px;
+  }
+
+  .tier {
+    border-bottom: 1px solid #1a1a1e;
+  }
+
+  .tier-header {
+    padding: 5px 10px 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tier-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+  }
+
+  .tier[data-tier="must"] .tier-dot { background: var(--must); }
+  .tier[data-tier="good"] .tier-dot { background: var(--good); }
+  .tier[data-tier="filler"] .tier-dot { background: var(--filler); }
+  .tier[data-tier="avoid"] .tier-dot { background: var(--avoid); }
+
+  .tier[data-tier="must"] .tier-header { color: var(--must); }
+  .tier[data-tier="good"] .tier-header { color: var(--good); }
+  .tier[data-tier="filler"] .tier-header { color: var(--filler); }
+  .tier[data-tier="avoid"] .tier-header { color: var(--avoid); }
+
+  .tier-list {
+    min-height: 4px;
+  }
+
+  .tier-empty-hint {
+    padding: 2px 10px 6px;
+    font-size: 11px;
+    color: var(--text-faint);
+    font-style: italic;
+  }
+
+  .player-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-top: 1px solid #17171a;
+  }
+
+  .player-row:hover {
+    background: #131316;
+  }
+
+  .player-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .player-name-line {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .player-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .player-club {
+    color: var(--text-dim);
+    font-size: 11px;
+    flex: 0 0 auto;
+  }
+
+  .player-stats {
+    color: var(--text-dim);
+    font-size: 11px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .player-stats .val {
+    color: var(--yellow);
+    font-weight: 600;
+  }
+
+  .player-note {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed transparent;
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 1px 0;
+    outline: none;
+  }
+
+  .player-note:hover, .player-note:focus {
+    border-bottom-color: var(--border);
+    color: var(--text);
+  }
+
+  .player-note::placeholder {
+    color: var(--text-faint);
+  }
+
+  .target-price {
+    flex: 0 0 auto;
+    width: 52px;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-weight: 700;
+    text-align: right;
+    padding: 3px 5px;
+    border-radius: 4px;
+    outline: none;
+    font-size: 12px;
+  }
+
+  .target-price:focus {
+    border-color: var(--accent);
+  }
+
+  .target-price::placeholder {
+    color: var(--text-faint);
+    font-weight: 400;
+  }
+
+  .row-controls {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 2px;
+  }
+
+  .ctrl-btn {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .ctrl-btn:hover {
+    background: #26262c;
+    color: var(--text);
+  }
+
+  .ctrl-btn:disabled {
+    opacity: 0.25;
+    cursor: default;
+  }
+  .ctrl-btn:disabled:hover {
+    background: var(--panel-alt);
+    color: var(--text-dim);
+  }
+
+  .ctrl-btn.remove:hover {
+    background: #3a1a1a;
+    color: var(--red);
+    border-color: #5a2a2a;
+  }
+
+  /* scrollbars */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2f2f36; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3f3f48; }
+
+  @media (max-width: 1000px) {
+    #board:not(.tabbed) {
+      grid-template-columns: 1fr 1fr;
+      grid-auto-rows: 1fr;
+    }
+  }
+
+  #searchResults, .pos-body {
+    overflow-x: hidden;
+  }
+
+  /* ---------- Sync (export/import) controls ---------- */
+  #syncRow {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .sync-btn {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .sync-btn:hover {
+    background: #23232a;
+  }
+
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .overlay.open {
+    display: flex;
+  }
+
+  .overlay-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+
+  .overlay-close {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .overlay-hint {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin: 0 0 10px;
+  }
+
+  .overlay-textarea {
+    flex: 1 1 auto;
+    min-height: 180px;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    resize: vertical;
+    outline: none;
+  }
+
+  .overlay-textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .overlay-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
+
+  .overlay-btn {
+    background: var(--accent);
+    border: none;
+    color: #0a0a0b;
+    font-weight: 700;
+    padding: 9px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  .overlay-status {
+    margin-top: 8px;
+    font-size: 12px;
+    min-height: 14px;
+    color: var(--text-dim);
+  }
+
+  .overlay-status.success { color: var(--green); font-weight: 600; }
+  .overlay-status.error { color: var(--red); font-weight: 600; }
+
+  /* ---------- Mobile (phone) layout ---------- */
+  @media (max-width: 759px) {
+    html, body { font-size: 14px; }
+
+    #topbar { padding: 10px 12px; }
+
+    #searchBox { font-size: 16px; padding: 12px; }
+
+    .sync-btn { min-height: 44px; padding: 0 14px; font-size: 13px; }
+
+    .tab-btn {
+      min-height: 48px;
+      font-size: 15px;
+    }
+
+    .result-row {
+      flex-wrap: wrap;
+      row-gap: 3px;
+      min-height: 44px;
+      padding: 10px 12px;
+    }
+    .result-name { flex-basis: 100%; font-size: 14px; }
+    .result-meta { font-size: 12px; }
+
+    .pos-header { padding: 10px 12px; font-size: 14px; }
+    .tier-header { padding: 8px 12px 6px; font-size: 11.5px; }
+
+    .player-row {
+      flex-wrap: wrap;
+      row-gap: 8px;
+      padding: 10px 12px;
+    }
+    .player-main { flex-basis: 100%; }
+    .player-name { font-size: 15px; }
+    .player-club, .player-stats { font-size: 12px; }
+    .player-note { font-size: 16px; padding: 6px 0; }
+
+    .target-price {
+      min-height: 44px;
+      width: 76px;
+      font-size: 16px;
+    }
+
+    .row-controls {
+      margin-left: auto;
+      gap: 8px;
+    }
+
+    .ctrl-btn {
+      width: 44px;
+      height: 44px;
+      font-size: 16px;
+    }
+
+    .overlay-panel { padding: 14px; }
+    .overlay-btn { min-height: 44px; padding: 0 18px; }
+    .overlay-close { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div id="searchWrap">
+    <input type="text" id="searchBox" placeholder="Search players by name…" autocomplete="off">
+    <div id="searchResults"></div>
+  </div>
+  <div id="statusMsg"></div>
+  <div id="saveWarning">⚠ Could not save — your last change may be lost. localStorage may be full or disabled.</div>
+  <div id="syncRow">
+    <button id="exportBtn" class="sync-btn" type="button">Export</button>
+    <button id="importBtn" class="sync-btn" type="button">Import</button>
+  </div>
+</div>
+
+<div id="tabs"></div>
+
+<div id="board"></div>
+
+<div id="fatalError">
+  <h2>Can't load player data</h2>
+  <p>This page fetches <code>players.json</code> from its own folder, and browsers block that fetch when the file is opened directly (a <code>file://</code> URL).</p>
+  <p>Serve this folder over local HTTP instead, then open the printed address. For example, from a terminal in this folder:</p>
+  <p><code>python3 -m http.server 8000</code></p>
+  <p>then visit <code>http://localhost:8000/rankings.html</code>.</p>
+</div>
+
+<div id="exportOverlay" class="overlay">
+  <div class="overlay-panel">
+    <div class="overlay-header">
+      <span>Export rankings</span>
+      <button id="exportCloseBtn" class="overlay-close" type="button">✕</button>
+    </div>
+    <p class="overlay-hint">Copy this JSON, then paste it into Import on the other device.</p>
+    <textarea id="exportText" class="overlay-textarea" readonly></textarea>
+    <div class="overlay-actions">
+      <button id="exportCopyBtn" class="overlay-btn" type="button">Copy to clipboard</button>
+    </div>
+    <div id="exportStatus" class="overlay-status"></div>
+  </div>
+</div>
+
+<div id="importOverlay" class="overlay">
+  <div class="overlay-panel">
+    <div class="overlay-header">
+      <span>Import rankings</span>
+      <button id="importCloseBtn" class="overlay-close" type="button">✕</button>
+    </div>
+    <p class="overlay-hint">Paste JSON exported from another device. This replaces your current list.</p>
+    <textarea id="importText" class="overlay-textarea" placeholder="Paste exported JSON here…"></textarea>
+    <div class="overlay-actions">
+      <button id="importLoadBtn" class="overlay-btn" type="button">Import</button>
+    </div>
+    <div id="importStatus" class="overlay-status"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "uclRankings.v1";
+  var POSITIONS = ["GK", "DEF", "MID", "FWD"];
+  var TIERS = ["must", "good", "filler", "avoid"];
+  var TIER_LABELS = { must: "Must have", good: "Good value", filler: "Filler", avoid: "Avoid" };
+
+  var playersById = {};
+  var allPlayers = [];
+  var state = null; // { GK: {must:[ids], good:[ids], filler:[ids], avoid:[ids]}, DEF: {...}, ... }
+  var entryMeta = {}; // id -> { targetPrice, note }
+  var activeTab = "GK";
+
+  function stripAccents(s) {
+    return s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
+  function norm(s) {
+    return stripAccents(String(s || "")).toLowerCase();
+  }
+
+  function fmtVal(v) {
+    if (v === null || v === undefined || isNaN(v)) return "-";
+    return Number(v).toFixed(1);
+  }
+
+  // ---------- Load data ----------
+  fetch("players.json")
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      init(data);
+    })
+    .catch(function (err) {
+      showFatalError();
+      console.error(err);
+    });
+
+  function showFatalError() {
+    document.getElementById("fatalError").style.display = "block";
+    document.getElementById("topbar").style.display = "none";
+  }
+
+  function init(data) {
+    allPlayers = data.filter(function (p) {
+      return POSITIONS.indexOf(p.position) !== -1;
+    });
+    allPlayers.forEach(function (p) {
+      playersById[p.id] = p;
+    });
+
+    loadState();
+    buildTabs();
+    render();
+    setupSearch();
+    setupTabs();
+    setupSync();
+    handleResize();
+    window.addEventListener("resize", handleResize);
+  }
+
+  // ---------- State ----------
+  function emptyState() {
+    var s = {};
+    POSITIONS.forEach(function (pos) {
+      s[pos] = { must: [], good: [], filler: [], avoid: [] };
+    });
+    return s;
+  }
+
+  function loadState() {
+    state = emptyState();
+    entryMeta = {};
+    var raw;
+    try {
+      raw = localStorage.getItem(STORAGE_KEY);
+    } catch (e) {
+      raw = null;
+    }
+    if (!raw) return;
+
+    var saved;
+    try {
+      saved = JSON.parse(raw);
+    } catch (e) {
+      return;
+    }
+    if (!saved || typeof saved !== "object") return;
+
+    POSITIONS.forEach(function (pos) {
+      var posData = saved[pos];
+      if (!posData) return;
+      TIERS.forEach(function (tier) {
+        var list = posData[tier];
+        if (!Array.isArray(list)) return;
+        list.forEach(function (entry) {
+          var id = entry && entry.id;
+          if (id === undefined || id === null) return;
+          var player = playersById[id];
+          if (!player) return; // dropped silently: no longer in players.json
+          if (player.position !== pos) return; // safety: ignore mismatched position
+          state[pos][tier].push(id);
+          entryMeta[id] = {
+            targetPrice: (entry.targetPrice === undefined || entry.targetPrice === null) ? "" : entry.targetPrice,
+            note: entry.note || ""
+          };
+        });
+      });
+    });
+  }
+
+  function buildStateObject() {
+    var out = {};
+    POSITIONS.forEach(function (pos) {
+      out[pos] = {};
+      TIERS.forEach(function (tier) {
+        out[pos][tier] = state[pos][tier].map(function (id) {
+          var meta = entryMeta[id] || {};
+          return {
+            id: id,
+            targetPrice: (meta.targetPrice === "" || meta.targetPrice === undefined) ? null : meta.targetPrice,
+            note: meta.note || ""
+          };
+        });
+      });
+    });
+    return out;
+  }
+
+  function saveState() {
+    var out = buildStateObject();
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(out));
+      document.getElementById("saveWarning").style.display = "none";
+    } catch (e) {
+      document.getElementById("saveWarning").style.display = "block";
+      console.error("Save failed", e);
+    }
+  }
+
+  function countEntries(s) {
+    var n = 0;
+    POSITIONS.forEach(function (pos) {
+      TIERS.forEach(function (tier) {
+        n += s[pos][tier].length;
+      });
+    });
+    return n;
+  }
+
+  function isAdded(id) {
+    var p = playersById[id];
+    if (!p) return false;
+    var tiers = state[p.position];
+    return TIERS.some(function (t) { return tiers[t].indexOf(id) !== -1; });
+  }
+
+  function addPlayer(id) {
+    var p = playersById[id];
+    if (!p) return;
+    if (isAdded(id)) return;
+    state[p.position].must.push(id);
+    entryMeta[id] = { targetPrice: "", note: "" };
+    saveState();
+    render();
+  }
+
+  function removePlayer(id) {
+    var p = playersById[id];
+    if (!p) return;
+    var tiers = state[p.position];
+    TIERS.forEach(function (t) {
+      var idx = tiers[t].indexOf(id);
+      if (idx !== -1) tiers[t].splice(idx, 1);
+    });
+    delete entryMeta[id];
+    saveState();
+    render();
+  }
+
+  function moveEntry(id, dir) {
+    // dir: -1 = up, +1 = down
+    var p = playersById[id];
+    if (!p) return;
+    var tiers = state[p.position];
+    var curTierIdx = -1, curTier = null, curIdx = -1;
+    for (var i = 0; i < TIERS.length; i++) {
+      var idx = tiers[TIERS[i]].indexOf(id);
+      if (idx !== -1) {
+        curTierIdx = i;
+        curTier = TIERS[i];
+        curIdx = idx;
+        break;
+      }
+    }
+    if (curTier === null) return;
+    var list = tiers[curTier];
+
+    if (dir === -1) {
+      if (curIdx > 0) {
+        list.splice(curIdx, 1);
+        list.splice(curIdx - 1, 0, id);
+      } else {
+        // at top of tier: move to bottom of tier above
+        if (curTierIdx === 0) return; // top of Must have: no-op
+        list.splice(curIdx, 1);
+        var aboveTier = tiers[TIERS[curTierIdx - 1]];
+        aboveTier.push(id);
+      }
+    } else {
+      if (curIdx < list.length - 1) {
+        list.splice(curIdx, 1);
+        list.splice(curIdx + 1, 0, id);
+      } else {
+        // at bottom of tier: move to top of tier below
+        if (curTierIdx === TIERS.length - 1) return; // bottom of Avoid: no-op
+        list.splice(curIdx, 1);
+        var belowTier = tiers[TIERS[curTierIdx + 1]];
+        belowTier.unshift(id);
+      }
+    }
+    saveState();
+    render();
+  }
+
+  // ---------- Search ----------
+  function setupSearch() {
+    var box = document.getElementById("searchBox");
+    var results = document.getElementById("searchResults");
+
+    box.addEventListener("input", function () {
+      var q = norm(box.value.trim());
+      if (!q) {
+        results.classList.remove("open");
+        results.innerHTML = "";
+        return;
+      }
+      var matches = allPlayers.filter(function (p) {
+        return norm(p.name).indexOf(q) !== -1 || norm(p.fullName).indexOf(q) !== -1;
+      }).slice(0, 40);
+
+      renderSearchResults(matches);
+    });
+
+    document.addEventListener("click", function (e) {
+      if (!document.getElementById("searchWrap").contains(e.target)) {
+        results.classList.remove("open");
+      }
+    });
+
+    box.addEventListener("focus", function () {
+      if (results.innerHTML) results.classList.add("open");
+    });
+  }
+
+  function renderSearchResults(matches) {
+    var results = document.getElementById("searchResults");
+    results.innerHTML = "";
+    if (matches.length === 0) {
+      results.classList.remove("open");
+      return;
+    }
+    matches.forEach(function (p) {
+      var added = isAdded(p.id);
+      var row = document.createElement("div");
+      row.className = "result-row" + (added ? " added" : "");
+
+      var posTag = document.createElement("span");
+      posTag.className = "result-pos";
+      posTag.textContent = p.position;
+
+      var name = document.createElement("span");
+      name.className = "result-name";
+      name.textContent = p.name + (p.fullName && p.fullName !== p.name ? " — " + p.fullName : "");
+
+      var meta = document.createElement("span");
+      meta.className = "result-meta";
+      meta.textContent = p.club + " · " + fmtVal(p.value) + "m · " + (p.points != null ? p.points : 0) + "pts";
+
+      row.appendChild(posTag);
+      row.appendChild(name);
+      row.appendChild(meta);
+
+      if (added) {
+        var tag = document.createElement("span");
+        tag.className = "result-added-tag";
+        tag.textContent = "added";
+        row.appendChild(tag);
+      } else {
+        row.addEventListener("click", function () {
+          addPlayer(p.id);
+          document.getElementById("searchBox").value = "";
+          document.getElementById("searchResults").classList.remove("open");
+          document.getElementById("searchResults").innerHTML = "";
+        });
+      }
+
+      results.appendChild(row);
+    });
+    results.classList.add("open");
+  }
+
+  // ---------- Tabs / responsive ----------
+  function buildTabs() {
+    var tabsEl = document.getElementById("tabs");
+    tabsEl.innerHTML = "";
+    POSITIONS.forEach(function (pos) {
+      var btn = document.createElement("button");
+      btn.className = "tab-btn" + (pos === activeTab ? " active" : "");
+      btn.textContent = pos;
+      btn.dataset.pos = pos;
+      tabsEl.appendChild(btn);
+    });
+  }
+
+  function setupTabs() {
+    document.getElementById("tabs").addEventListener("click", function (e) {
+      var btn = e.target.closest(".tab-btn");
+      if (!btn) return;
+      activeTab = btn.dataset.pos;
+      document.querySelectorAll(".tab-btn").forEach(function (b) {
+        b.classList.toggle("active", b.dataset.pos === activeTab);
+      });
+      document.querySelectorAll(".pos-section").forEach(function (s) {
+        s.classList.toggle("active", s.dataset.pos === activeTab);
+      });
+    });
+  }
+
+  var TABBED_BREAKPOINT = 760;
+
+  function handleResize() {
+    var narrow = window.innerWidth < TABBED_BREAKPOINT;
+    var tabsEl = document.getElementById("tabs");
+    var boardEl = document.getElementById("board");
+    tabsEl.classList.toggle("visible", narrow);
+    boardEl.classList.toggle("tabbed", narrow);
+    document.querySelectorAll(".pos-section").forEach(function (s) {
+      s.classList.toggle("active", !narrow || s.dataset.pos === activeTab);
+    });
+  }
+
+  // ---------- Export / Import sync ----------
+  function openOverlay(el) {
+    el.classList.add("open");
+  }
+
+  function closeOverlay(el) {
+    el.classList.remove("open");
+  }
+
+  function copyExportText(text, statusEl) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        statusEl.textContent = "Copied to clipboard.";
+        statusEl.className = "overlay-status success";
+      }).catch(function () {
+        statusEl.textContent = "Couldn't copy automatically — select the text above and copy manually.";
+        statusEl.className = "overlay-status error";
+      });
+    } else {
+      statusEl.textContent = "Clipboard not available — select the text above and copy manually.";
+      statusEl.className = "overlay-status error";
+    }
+  }
+
+  function validateImportData(obj) {
+    if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
+      return { valid: false, error: "Top level of the JSON must be an object." };
+    }
+    for (var i = 0; i < POSITIONS.length; i++) {
+      var pos = POSITIONS[i];
+      if (!(pos in obj)) continue;
+      var posData = obj[pos];
+      if (!posData || typeof posData !== "object" || Array.isArray(posData)) {
+        return { valid: false, error: '"' + pos + '" must be an object.' };
+      }
+      for (var j = 0; j < TIERS.length; j++) {
+        var tier = TIERS[j];
+        if (!(tier in posData)) continue;
+        var list = posData[tier];
+        if (!Array.isArray(list)) {
+          return { valid: false, error: '"' + pos + "." + tier + '" must be an array.' };
+        }
+        for (var k = 0; k < list.length; k++) {
+          var entry = list[k];
+          var where = '"' + pos + "." + tier + '"[' + k + "]";
+          if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+            return { valid: false, error: where + " must be an object." };
+          }
+          if (entry.id === undefined || entry.id === null ||
+              (typeof entry.id !== "string" && typeof entry.id !== "number")) {
+            return { valid: false, error: where + " is missing a valid id." };
+          }
+          if (entry.targetPrice !== undefined && entry.targetPrice !== null && typeof entry.targetPrice !== "number") {
+            return { valid: false, error: where + " has an invalid targetPrice (must be a number or null)." };
+          }
+          if (entry.note !== undefined && entry.note !== null && typeof entry.note !== "string") {
+            return { valid: false, error: where + " has an invalid note (must be a string)." };
+          }
+        }
+      }
+    }
+    return { valid: true };
+  }
+
+  function applyImport(obj) {
+    var newState = emptyState();
+    var newMeta = {};
+    POSITIONS.forEach(function (pos) {
+      var posData = obj[pos];
+      if (!posData) return;
+      TIERS.forEach(function (tier) {
+        var list = posData[tier];
+        if (!Array.isArray(list)) return;
+        list.forEach(function (entry) {
+          var id = entry.id;
+          var player = playersById[id];
+          if (!player && typeof id === "number") player = playersById[String(id)];
+          if (!player) return; // not in players.json: dropped silently
+          if (player.position !== pos) return;
+          if (newState[pos][tier].indexOf(player.id) !== -1) return;
+          newState[pos][tier].push(player.id);
+          newMeta[player.id] = {
+            targetPrice: (entry.targetPrice === undefined || entry.targetPrice === null) ? "" : entry.targetPrice,
+            note: entry.note || ""
+          };
+        });
+      });
+    });
+    state = newState;
+    entryMeta = newMeta;
+    saveState();
+    render();
+  }
+
+  function setupSync() {
+    var exportBtn = document.getElementById("exportBtn");
+    var importBtn = document.getElementById("importBtn");
+    var exportOverlay = document.getElementById("exportOverlay");
+    var importOverlay = document.getElementById("importOverlay");
+    var exportText = document.getElementById("exportText");
+    var exportStatus = document.getElementById("exportStatus");
+    var importText = document.getElementById("importText");
+    var importStatus = document.getElementById("importStatus");
+
+    exportBtn.addEventListener("click", function () {
+      var json = JSON.stringify(buildStateObject(), null, 2);
+      exportText.value = json;
+      exportStatus.textContent = "";
+      exportStatus.className = "overlay-status";
+      openOverlay(exportOverlay);
+      exportText.focus();
+      exportText.select();
+      copyExportText(json, exportStatus);
+    });
+
+    document.getElementById("exportCopyBtn").addEventListener("click", function () {
+      copyExportText(exportText.value, exportStatus);
+      exportText.focus();
+      exportText.select();
+    });
+
+    document.getElementById("exportCloseBtn").addEventListener("click", function () {
+      closeOverlay(exportOverlay);
+    });
+
+    exportOverlay.addEventListener("click", function (e) {
+      if (e.target === exportOverlay) closeOverlay(exportOverlay);
+    });
+
+    importBtn.addEventListener("click", function () {
+      importText.value = "";
+      importStatus.textContent = "";
+      importStatus.className = "overlay-status";
+      openOverlay(importOverlay);
+      importText.focus();
+    });
+
+    document.getElementById("importCloseBtn").addEventListener("click", function () {
+      closeOverlay(importOverlay);
+    });
+
+    importOverlay.addEventListener("click", function (e) {
+      if (e.target === importOverlay) closeOverlay(importOverlay);
+    });
+
+    document.getElementById("importLoadBtn").addEventListener("click", function () {
+      var raw = importText.value.trim();
+      if (!raw) {
+        importStatus.textContent = "Paste JSON before importing.";
+        importStatus.className = "overlay-status error";
+        return;
+      }
+      var parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (e) {
+        importStatus.textContent = "That isn't valid JSON: " + e.message;
+        importStatus.className = "overlay-status error";
+        return;
+      }
+      var check = validateImportData(parsed);
+      if (!check.valid) {
+        importStatus.textContent = "Import refused — " + check.error;
+        importStatus.className = "overlay-status error";
+        return;
+      }
+      var currentCount = countEntries(state);
+      if (currentCount > 0) {
+        var ok = window.confirm(
+          "This will replace your current list of " + currentCount +
+          (currentCount === 1 ? " player" : " players") + ". Continue?"
+        );
+        if (!ok) return;
+      }
+      applyImport(parsed);
+      importStatus.textContent = "Imported successfully.";
+      importStatus.className = "overlay-status success";
+      setTimeout(function () { closeOverlay(importOverlay); }, 700);
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if (exportOverlay.classList.contains("open")) closeOverlay(exportOverlay);
+      if (importOverlay.classList.contains("open")) closeOverlay(importOverlay);
+    });
+  }
+
+  // ---------- Render board ----------
+  function render() {
+    var board = document.getElementById("board");
+    board.innerHTML = "";
+
+    POSITIONS.forEach(function (pos) {
+      var section = document.createElement("div");
+      section.className = "pos-section" + (pos === activeTab ? " active" : "");
+      section.dataset.pos = pos;
+
+      var totalCount = TIERS.reduce(function (sum, t) { return sum + state[pos][t].length; }, 0);
+
+      var header = document.createElement("div");
+      header.className = "pos-header";
+      var title = document.createElement("span");
+      title.textContent = pos;
+      var count = document.createElement("span");
+      count.className = "pos-count";
+      count.textContent = totalCount;
+      header.appendChild(title);
+      header.appendChild(count);
+      section.appendChild(header);
+
+      var body = document.createElement("div");
+      body.className = "pos-body";
+
+      TIERS.forEach(function (tier) {
+        var tierEl = document.createElement("div");
+        tierEl.className = "tier";
+        tierEl.dataset.tier = tier;
+
+        var tierHeader = document.createElement("div");
+        tierHeader.className = "tier-header";
+        var dot = document.createElement("span");
+        dot.className = "tier-dot";
+        var label = document.createElement("span");
+        label.textContent = TIER_LABELS[tier];
+        var tCount = document.createElement("span");
+        tCount.style.color = "var(--text-faint)";
+        tCount.style.fontWeight = "500";
+        tCount.textContent = "(" + state[pos][tier].length + ")";
+        tierHeader.appendChild(dot);
+        tierHeader.appendChild(label);
+        tierHeader.appendChild(tCount);
+        tierEl.appendChild(tierHeader);
+
+        var list = document.createElement("div");
+        list.className = "tier-list";
+
+        var ids = state[pos][tier];
+        if (ids.length === 0) {
+          var hint = document.createElement("div");
+          hint.className = "tier-empty-hint";
+          hint.textContent = "—";
+          list.appendChild(hint);
+        } else {
+          ids.forEach(function (id, idx) {
+            list.appendChild(renderPlayerRow(id, pos, tier, idx, ids.length));
+          });
+        }
+
+        tierEl.appendChild(list);
+        body.appendChild(tierEl);
+      });
+
+      section.appendChild(body);
+      board.appendChild(section);
+    });
+
+    handleResize();
+  }
+
+  function renderPlayerRow(id, pos, tier, idx, tierLen) {
+    var p = playersById[id];
+    var meta = entryMeta[id] || { targetPrice: "", note: "" };
+
+    var row = document.createElement("div");
+    row.className = "player-row";
+
+    var main = document.createElement("div");
+    main.className = "player-main";
+
+    var nameLine = document.createElement("div");
+    nameLine.className = "player-name-line";
+
+    var nameEl = document.createElement("span");
+    nameEl.className = "player-name";
+    nameEl.textContent = p.name;
+    nameEl.title = p.fullName || p.name;
+
+    var clubEl = document.createElement("span");
+    clubEl.className = "player-club";
+    clubEl.textContent = p.clubCode || p.club || "";
+
+    var statsEl = document.createElement("span");
+    statsEl.className = "player-stats";
+    statsEl.innerHTML = '<span class="val">' + fmtVal(p.value) + "</span> · " + (p.points != null ? p.points : 0) + "pt";
+
+    nameLine.appendChild(nameEl);
+    nameLine.appendChild(clubEl);
+    nameLine.appendChild(statsEl);
+
+    var noteInput = document.createElement("input");
+    noteInput.type = "text";
+    noteInput.className = "player-note";
+    noteInput.placeholder = "note…";
+    noteInput.value = meta.note || "";
+    noteInput.addEventListener("change", function () {
+      entryMeta[id] = entryMeta[id] || { targetPrice: "", note: "" };
+      entryMeta[id].note = noteInput.value;
+      saveState();
+    });
+
+    main.appendChild(nameLine);
+    main.appendChild(noteInput);
+
+    var priceInput = document.createElement("input");
+    priceInput.type = "number";
+    priceInput.className = "target-price";
+    priceInput.placeholder = "£";
+    priceInput.min = "0";
+    priceInput.step = "0.1";
+    priceInput.setAttribute("inputmode", "decimal");
+    priceInput.value = (meta.targetPrice === "" || meta.targetPrice === undefined || meta.targetPrice === null) ? "" : meta.targetPrice;
+    priceInput.addEventListener("change", function () {
+      entryMeta[id] = entryMeta[id] || { targetPrice: "", note: "" };
+      var v = priceInput.value;
+      entryMeta[id].targetPrice = v === "" ? "" : parseFloat(v);
+      saveState();
+    });
+
+    var controls = document.createElement("div");
+    controls.className = "row-controls";
+
+    var upBtn = document.createElement("button");
+    upBtn.className = "ctrl-btn";
+    upBtn.textContent = "▲";
+    upBtn.title = "Move up";
+    var atVeryTop = (tier === TIERS[0] && idx === 0);
+    upBtn.disabled = atVeryTop;
+    upBtn.addEventListener("click", function () { moveEntry(id, -1); });
+
+    var downBtn = document.createElement("button");
+    downBtn.className = "ctrl-btn";
+    downBtn.textContent = "▼";
+    downBtn.title = "Move down";
+    var atVeryBottom = (tier === TIERS[TIERS.length - 1] && idx === tierLen - 1);
+    downBtn.disabled = atVeryBottom;
+    downBtn.addEventListener("click", function () { moveEntry(id, 1); });
+
+    var removeBtn = document.createElement("button");
+    removeBtn.className = "ctrl-btn remove";
+    removeBtn.textContent = "✕";
+    removeBtn.title = "Remove";
+    removeBtn.addEventListener("click", function () { removePlayer(id); });
+
+    controls.appendChild(upBtn);
+    controls.appendChild(downBtn);
+    controls.appendChild(removeBtn);
+
+    row.appendChild(main);
+    row.appendChild(priceInput);
+    row.appendChild(controls);
+
+    return row;
+  }
+
+})();
+</script>
+</body>
+</html>

@@ -201,6 +201,14 @@
     border-bottom-color: var(--accent);
   }
 
+  /* ---------- Main area (board + browse panel) ---------- */
+  #mainArea {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   /* ---------- Main board ---------- */
   #board {
     flex: 1 1 auto;
@@ -210,6 +218,7 @@
     background: var(--border);
     overflow: hidden;
     min-height: 0;
+    min-width: 0;
   }
 
   #board.tabbed {
@@ -458,6 +467,175 @@
     overflow-x: hidden;
   }
 
+  /* ---------- Browse panel ---------- */
+  #browsePanel {
+    flex: 0 0 380px;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #browsePanel.hidden { display: none; }
+
+  #browseHeader {
+    flex: 0 0 auto;
+    padding: 8px 10px;
+    background: var(--panel);
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  #browseFilters {
+    flex: 0 0 auto;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .browse-pos-pills {
+    display: flex;
+    gap: 4px;
+  }
+
+  .browse-pos-pill {
+    flex: 1 1 auto;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 5px 0;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .browse-pos-pill:hover { background: #23232a; color: var(--text); }
+
+  .browse-pos-pill.active {
+    background: var(--accent);
+    color: #0a0a0b;
+    border-color: var(--accent);
+  }
+
+  .browse-filter-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .browse-select {
+    flex: 1 1 auto;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 6px;
+    border-radius: 5px;
+    font-size: 12px;
+    outline: none;
+    min-width: 0;
+  }
+
+  .browse-select:focus { border-color: var(--accent); }
+
+  #browseAddSelectedBtn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  #browseAddSelectedBtn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  #browseList {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .browse-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border-bottom: 1px solid #17171a;
+  }
+
+  .browse-row:hover:not(.added) { background: #131316; }
+
+  .browse-row.added { opacity: 0.45; }
+
+  .browse-check {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
+  .browse-check:disabled { cursor: default; }
+
+  .browse-name {
+    font-weight: 600;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .browse-meta {
+    color: var(--text-dim);
+    font-size: 11px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .browse-meta .val {
+    color: var(--yellow);
+    font-weight: 600;
+  }
+
+  .browse-add-btn {
+    flex: 0 0 auto;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .browse-add-btn:hover {
+    background: #1c2f45;
+    border-color: var(--accent);
+  }
+
+  .browse-empty {
+    padding: 16px 10px;
+    color: var(--text-faint);
+    font-size: 12px;
+    font-style: italic;
+    text-align: center;
+  }
+
   /* ---------- Sync (export/import) controls ---------- */
   #syncRow {
     display: flex;
@@ -582,6 +760,8 @@
 
   /* ---------- Mobile (phone) layout ---------- */
   @media (max-width: 759px) {
+    #browsePanel { display: none !important; }
+
     html, body { font-size: 14px; }
 
     #topbar { padding: 10px 12px; }
@@ -652,12 +832,44 @@
   <div id="syncRow">
     <button id="exportBtn" class="sync-btn" type="button">Export</button>
     <button id="importBtn" class="sync-btn" type="button">Import</button>
+    <button id="toggleBrowseBtn" class="sync-btn" type="button">Hide browser</button>
   </div>
 </div>
 
 <div id="tabs"></div>
 
-<div id="board"></div>
+<div id="mainArea">
+  <div id="board"></div>
+
+  <div id="browsePanel">
+    <div id="browseHeader">
+      <span>Browse players</span>
+    </div>
+    <div id="browseFilters">
+      <div id="browsePosFilter" class="browse-pos-pills"></div>
+      <div class="browse-filter-row">
+        <select id="browseClubFilter" class="browse-select"></select>
+        <select id="browseSort" class="browse-select">
+          <option value="value_desc">Value: high → low</option>
+          <option value="value_asc">Value: low → high</option>
+          <option value="points_desc">Points: high → low</option>
+          <option value="points_asc">Points: low → high</option>
+          <option value="name_asc">Name: A → Z</option>
+        </select>
+      </div>
+      <div class="browse-filter-row">
+        <select id="browseTierTarget" class="browse-select">
+          <option value="must">Add to: Must have</option>
+          <option value="good">Add to: Good value</option>
+          <option value="filler">Add to: Filler</option>
+          <option value="avoid">Add to: Avoid</option>
+        </select>
+        <button id="browseAddSelectedBtn" class="sync-btn" type="button" disabled>Add selected</button>
+      </div>
+    </div>
+    <div id="browseList"></div>
+  </div>
+</div>
 
 <div id="fatalError">
   <h2>Can't load player data</h2>
@@ -712,6 +924,14 @@
   var entryMeta = {}; // id -> { targetPrice, note }
   var activeTab = "GK";
 
+  var browseState = {
+    position: "ALL",
+    club: "ALL",
+    sort: "value_desc",
+    targetTier: "must",
+    selected: {} // id -> true
+  };
+
   function stripAccents(s) {
     return s.normalize("NFD").replace(/[̀-ͯ]/g, "");
   }
@@ -754,10 +974,11 @@
 
     loadState();
     buildTabs();
-    render();
     setupSearch();
     setupTabs();
     setupSync();
+    setupBrowse();
+    render();
     handleResize();
     window.addEventListener("resize", handleResize);
   }
@@ -858,12 +1079,22 @@
     return TIERS.some(function (t) { return tiers[t].indexOf(id) !== -1; });
   }
 
-  function addPlayer(id) {
+  function addPlayerToTierNoSave(id, tier) {
     var p = playersById[id];
     if (!p) return;
     if (isAdded(id)) return;
-    state[p.position].must.push(id);
+    state[p.position][tier].push(id);
     entryMeta[id] = { targetPrice: "", note: "" };
+  }
+
+  function addPlayer(id) {
+    addPlayerToTierNoSave(id, "must");
+    saveState();
+    render();
+  }
+
+  function addPlayersToTier(ids, tier) {
+    ids.forEach(function (id) { addPlayerToTierNoSave(id, tier); });
     saveState();
     render();
   }
@@ -1001,6 +1232,209 @@
       results.appendChild(row);
     });
     results.classList.add("open");
+  }
+
+  // ---------- Browse panel ----------
+  var TIER_TARGET_LABELS = { must: "Must have", good: "Good value", filler: "Filler", avoid: "Avoid" };
+
+  function setupBrowse() {
+    var posFilterEl = document.getElementById("browsePosFilter");
+    var clubFilterEl = document.getElementById("browseClubFilter");
+    var sortEl = document.getElementById("browseSort");
+    var tierTargetEl = document.getElementById("browseTierTarget");
+    var addSelectedBtn = document.getElementById("browseAddSelectedBtn");
+    var toggleBtn = document.getElementById("toggleBrowseBtn");
+    var panel = document.getElementById("browsePanel");
+
+    // Position pills
+    posFilterEl.innerHTML = "";
+    ["ALL"].concat(POSITIONS).forEach(function (pos) {
+      var pill = document.createElement("button");
+      pill.type = "button";
+      pill.className = "browse-pos-pill" + (pos === browseState.position ? " active" : "");
+      pill.textContent = pos === "ALL" ? "All" : pos;
+      pill.dataset.pos = pos;
+      pill.addEventListener("click", function () {
+        browseState.position = pos;
+        posFilterEl.querySelectorAll(".browse-pos-pill").forEach(function (b) {
+          b.classList.toggle("active", b.dataset.pos === pos);
+        });
+        renderBrowseList();
+      });
+      posFilterEl.appendChild(pill);
+    });
+
+    // Club filter
+    var clubs = Array.from(new Set(allPlayers.map(function (p) { return p.club; }))).sort();
+    clubFilterEl.innerHTML = "";
+    var allClubsOpt = document.createElement("option");
+    allClubsOpt.value = "ALL";
+    allClubsOpt.textContent = "All clubs";
+    clubFilterEl.appendChild(allClubsOpt);
+    clubs.forEach(function (club) {
+      var opt = document.createElement("option");
+      opt.value = club;
+      opt.textContent = club;
+      clubFilterEl.appendChild(opt);
+    });
+    clubFilterEl.addEventListener("change", function () {
+      browseState.club = clubFilterEl.value;
+      renderBrowseList();
+    });
+
+    sortEl.value = browseState.sort;
+    sortEl.addEventListener("change", function () {
+      browseState.sort = sortEl.value;
+      renderBrowseList();
+    });
+
+    tierTargetEl.value = browseState.targetTier;
+    tierTargetEl.addEventListener("change", function () {
+      browseState.targetTier = tierTargetEl.value;
+      updateAddSelectedBtn();
+    });
+
+    addSelectedBtn.addEventListener("click", function () {
+      var ids = Object.keys(browseState.selected).filter(function (id) { return !isAdded(id); });
+      if (ids.length === 0) return;
+      browseState.selected = {};
+      addPlayersToTier(ids, browseState.targetTier);
+    });
+
+    toggleBtn.addEventListener("click", function () {
+      var hidden = panel.classList.toggle("hidden");
+      toggleBtn.textContent = hidden ? "Show browser" : "Hide browser";
+    });
+
+    updateAddSelectedBtn();
+  }
+
+  function updateAddSelectedBtn() {
+    var addSelectedBtn = document.getElementById("browseAddSelectedBtn");
+    var n = Object.keys(browseState.selected).filter(function (id) { return !isAdded(id); }).length;
+    addSelectedBtn.disabled = n === 0;
+    addSelectedBtn.textContent = n === 0
+      ? "Add selected"
+      : "Add " + n + " to " + TIER_TARGET_LABELS[browseState.targetTier];
+  }
+
+  function getBrowseFilteredSorted() {
+    var list = allPlayers.filter(function (p) {
+      if (browseState.position !== "ALL" && p.position !== browseState.position) return false;
+      if (browseState.club !== "ALL" && p.club !== browseState.club) return false;
+      return true;
+    });
+
+    var cmp;
+    switch (browseState.sort) {
+      case "value_asc":
+        cmp = function (a, b) { return (a.value || 0) - (b.value || 0); };
+        break;
+      case "points_desc":
+        cmp = function (a, b) { return (b.points || 0) - (a.points || 0); };
+        break;
+      case "points_asc":
+        cmp = function (a, b) { return (a.points || 0) - (b.points || 0); };
+        break;
+      case "name_asc":
+        cmp = function (a, b) { return norm(a.name).localeCompare(norm(b.name)); };
+        break;
+      case "value_desc":
+      default:
+        cmp = function (a, b) { return (b.value || 0) - (a.value || 0); };
+        break;
+    }
+    list.sort(cmp);
+    return list;
+  }
+
+  function renderBrowseList() {
+    var listEl = document.getElementById("browseList");
+    if (!listEl) return; // called before init in edge cases
+
+    // prune stale selections for players that got added elsewhere (e.g. via search)
+    Object.keys(browseState.selected).forEach(function (id) {
+      if (isAdded(id)) delete browseState.selected[id];
+    });
+
+    var players = getBrowseFilteredSorted();
+    listEl.innerHTML = "";
+
+    if (players.length === 0) {
+      var empty = document.createElement("div");
+      empty.className = "browse-empty";
+      empty.textContent = "No players match these filters.";
+      listEl.appendChild(empty);
+      updateAddSelectedBtn();
+      return;
+    }
+
+    players.forEach(function (p) {
+      listEl.appendChild(renderBrowseRow(p));
+    });
+
+    updateAddSelectedBtn();
+  }
+
+  function renderBrowseRow(p) {
+    var added = isAdded(p.id);
+    var row = document.createElement("div");
+    row.className = "browse-row" + (added ? " added" : "");
+
+    var check = document.createElement("input");
+    check.type = "checkbox";
+    check.className = "browse-check";
+    if (added) {
+      check.disabled = true;
+    } else {
+      check.checked = !!browseState.selected[p.id];
+      check.addEventListener("change", function () {
+        if (check.checked) {
+          browseState.selected[p.id] = true;
+        } else {
+          delete browseState.selected[p.id];
+        }
+        updateAddSelectedBtn();
+      });
+    }
+
+    var posTag = document.createElement("span");
+    posTag.className = "result-pos";
+    posTag.textContent = p.position;
+
+    var name = document.createElement("span");
+    name.className = "browse-name";
+    name.textContent = p.name;
+    name.title = p.fullName || p.name;
+
+    var meta = document.createElement("span");
+    meta.className = "browse-meta";
+    meta.innerHTML = (p.clubCode || p.club) + " · <span class=\"val\">" + fmtVal(p.value) + "</span> · " + (p.points != null ? p.points : 0) + "pt";
+
+    row.appendChild(check);
+    row.appendChild(posTag);
+    row.appendChild(name);
+    row.appendChild(meta);
+
+    if (added) {
+      var tag = document.createElement("span");
+      tag.className = "result-added-tag";
+      tag.textContent = "added";
+      row.appendChild(tag);
+    } else {
+      var addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "browse-add-btn";
+      addBtn.textContent = "+";
+      addBtn.title = "Add to " + TIER_TARGET_LABELS[browseState.targetTier];
+      addBtn.addEventListener("click", function () {
+        delete browseState.selected[p.id];
+        addPlayersToTier([p.id], browseState.targetTier);
+      });
+      row.appendChild(addBtn);
+    }
+
+    return row;
   }
 
   // ---------- Tabs / responsive ----------
@@ -1300,6 +1734,7 @@
     });
 
     handleResize();
+    renderBrowseList();
   }
 
   function renderPlayerRow(id, pos, tier, idx, tierLen) {
